@@ -1,0 +1,97 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:users_app/global/global_variables.dart';
+
+class AddNewPaymentScreen extends StatefulWidget  {
+  const AddNewPaymentScreen({Key? key}) : super (key: key);
+
+  
+
+
+
+  @override
+  State<AddNewPaymentScreen> createState() => _AddNewPaymentScreenState();     
+}
+
+class _AddNewPaymentScreenState extends State<AddNewPaymentScreen>
+{
+  TextEditingController cardNumberController = TextEditingController();
+
+  
+  CardType cardType = CardType.Invalid;
+
+  void getCardTypeFrmNum(){
+    String cardNum = CardUtils.getCleanedNumber(cardNumberController.text);
+  }
+
+  @override
+  Widget build(BuildContext context)
+  {
+    return Scaffold
+    (
+      backgroundColor: Colors.white,
+      appBar: AppBar
+      (
+        title: Text("Añadir metodo de pago")
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
+        child: Column 
+        (
+          children: 
+          [
+            Form(child: Column(children: 
+            [
+              TextFormField
+              (
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(16),
+                  CardNumberInputFormatter(),
+                ],
+                decoration: InputDecoration
+                (
+                  hintText: "Numero de tarjeta"
+                ),
+              )
+            ],))
+          ],
+        ),
+      ),
+      );  
+  }
+}
+
+class CardNumberInputFormatter extends TextInputFormatter
+{
+
+  @override 
+  TextEditingValue formatEditUpdate 
+  (
+    TextEditingValue oldValue, TextEditingValue newValue){
+      if (newValue.selection.baseOffset == 0){
+        return newValue;
+      }
+
+    String inputData = newValue.text;
+    StringBuffer buffer = StringBuffer();
+
+    for (var i = 0; i < inputData.length; i++)
+    {
+      buffer.write(inputData[i]);
+      int index = i + 1;
+
+      if (index % 4 == 0 && inputData.length != index)
+      {
+        buffer.write("  ");
+      }
+
+    }
+
+    return TextEditingValue(
+      text: buffer.toString(),
+      selection: TextSelection.collapsed(offset: buffer.toString().length,),
+    );
+    }
+}
