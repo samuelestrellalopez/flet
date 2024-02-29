@@ -1,9 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
-import 'package:users_app/widgets/loading_dialog.dart';
-import 'package:uuid/uuid.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 class AddNewPaymentScreen extends StatefulWidget {
   const AddNewPaymentScreen({Key? key}) : super(key: key);
@@ -13,182 +12,144 @@ class AddNewPaymentScreen extends StatefulWidget {
 }
 
 class _AddNewPaymentScreenState extends State<AddNewPaymentScreen> {
-  String cardNumber = "";
-  String expiryDate = "";
-  String cardHolderName = "";
-  String cvvCode = "";
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  final DatabaseReference usersReference =
-      FirebaseDatabase.instance.reference().child('users');
+  TextEditingController _cardNumberController = TextEditingController();
+  TextEditingController _expiryMonthController = TextEditingController();
+  TextEditingController _expiryYearController = TextEditingController();
+  TextEditingController _cvcController = TextEditingController();
 
-  final Uuid uuid = Uuid();
-
-  Future<void> addPaymentMethod() async {
-    User? user = FirebaseAuth.instance.currentUser;
-
-    if (user != null) {
-      String userId = user.uid;
-
-      if (!validateCardNumber(cardNumber) ||
-          !validateExpiryDate(expiryDate) ||
-          !validateCardHolderName(cardHolderName)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Por favor, ingrese información de pago válida."),
-          ),
-        );
-        return;
-      }
-
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) =>
-            LoadingDialog(messageText: "Añadiendo método de pago..."),
-      );
-
-      String paymentMethodId = uuid.v4();
-
-      Map<String, dynamic> paymentMethod = {
-        'id': paymentMethodId,
-        'cardNumber': cardNumber.replaceAll(' ', ''),
-        'expiryDate': expiryDate,
-        'cardHolderName': cardHolderName,
-        'cvvCode': cvvCode,
-      };
-
-      // Actualizar el mapa 'paymentmethods' en el documento del usuario
-      await usersReference.child(userId).update({
-        'paymentmethod': paymentMethod,
-      });
-
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Método de pago añadido con éxito."),
-        ),
-      );
-
-      print('Payment method added with ID: $paymentMethodId to user ID: $userId');
-    } else {
-      print('No user is currently logged in.');
-    }
-  }
-
-  bool validateCardNumber(String cardNumber) {
-    return RegExp(r'^[0-9]{16}$').hasMatch(cardNumber);
-  }
-
-  bool validateExpiryDate(String expiryDate) {
-    return RegExp(r'^[0-9]{2}[0-9]{2}$').hasMatch(expiryDate);
-  }
-
-  bool validateCardHolderName(String cardHolderName) {
-    return !RegExp(r'[0-9]').hasMatch(cardHolderName);
-  }
-
-  String formatCardNumber(String input) {
-    input = input.replaceAll(' ', '');
-    if (input.length > 4) {
-      input = input.substring(0, 4) + ' ' + input.substring(4);
-    }
-    if (input.length > 9) {
-      input = input.substring(0, 9) + ' ' + input.substring(9);
-    }
-    if (input.length > 14) {
-      input = input.substring(0, 14) + ' ' + input.substring(14);
-    }
-    return input;
-  }
+  String _tokenMessage = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text("Añadir método de pago"),
+        title: const Text("Agregar Método de Pago"),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
+          key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               TextFormField(
-                decoration: InputDecoration(
-                  labelText: 'Número de tarjeta',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    cardNumber = formatCardNumber(value);
-                  });
-                },
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ],
-              ),
-              const SizedBox(height: 16.0),
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: 'Fecha de caducidad',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    expiryDate = value;
-                  });
-                },
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(4),
-                ],
-              ),
-              const SizedBox(height: 16.0),
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: 'Nombre del titular',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    cardHolderName = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16.0),
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: 'CVV',
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: (value) {
-                  setState(() {
-                    cvvCode = value;
-                  });
-                },
-                onFieldSubmitted: (value) {
-                  setState(() {
-                    // Handle focus change here if needed
-                  });
-                },
+                controller: _cardNumberController,
+                decoration: InputDecoration(labelText: 'Número de Tarjeta'),
                 keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(3),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor ingresa el número de tarjeta';
+                  }
+                  return null;
+                },
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _expiryMonthController,
+                      decoration: InputDecoration(labelText: 'Mes de Expiración'),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Por favor ingresa el mes de expiración';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  SizedBox(width: 10.0),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _expiryYearController,
+                      decoration: InputDecoration(labelText: 'Año de Expiración'),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Por favor ingresa el año de expiración';
+                        return null;
+                        }
+                      },
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 16.0),
-              ElevatedButton(
-                onPressed: () {
-                  addPaymentMethod();
+              TextFormField(
+                controller: _cvcController,
+                decoration: InputDecoration(labelText: 'CVC'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Por favor ingresa el CVC';
+                  }
+                  return null;
                 },
-                child: Text('Añadir método de pago'),
               ),
+              SizedBox(height: 20.0),
+              ElevatedButton(
+                onPressed: _addPaymentMethod,
+                child: Text('Agregar Método de Pago'),
+              ),
+              SizedBox(height: 20.0),
+              Text(_tokenMessage),
             ],
           ),
         ),
       ),
     );
+  }
+  
+  void _addPaymentMethod() async {
+    if (_formKey.currentState!.validate()) {
+      final cardNumber = _cardNumberController.text;
+      final expiryMonth = _expiryMonthController.text;
+      final expiryYear = _expiryYearController.text;
+      final cvc = _cvcController.text;
+
+      try {
+        Stripe.publishableKey = 'pk_test_51Oc9WPHDirRzPkGPs7RVgxaLXz7ZEpmeULsvZQsk5xDhtFPST7ke5TDCH03H444ijUW5xFcIt5R6YUSLEctCxlzG00ASdfAHZx'; // Reemplaza con tu clave pública de Stripe
+
+        final token = await Stripe.instance.createTokenForCVCUpdate(cvc);
+        final userEmail = _getUserEmail();
+
+        setState(() {
+          _tokenMessage = 'Token: ${token ?? 'No se pudo generar el token'} creado correctamente.';
+        });
+
+        await _sendTokenToApi(token ?? '', userEmail);
+      } catch (e) {
+        setState(() {
+          _tokenMessage = 'Error al crear el token: $e';
+        });
+      }
+    }
+  }
+
+  String _getUserEmail() {
+    final User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      return user.email ?? '';
+    } else {
+      throw Exception('User not logged in');
+    }
+  }
+
+  Future<void> _sendTokenToApi(String token, String userEmail) async {
+    final response = await http.post(
+      Uri.parse('http://192.168.1.70:4000/api/generate_token2'),
+      body: jsonEncode({
+        'token': token,
+        'userEmail': userEmail,
+      }),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      // Token enviado correctamente
+    } else {
+      throw Exception("Error al enviar el token al servidor.");
+    }
   }
 }

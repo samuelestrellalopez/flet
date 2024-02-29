@@ -10,13 +10,11 @@ import 'package:users_app/methods/common_methods.dart';
 import 'package:users_app/widgets/loading_dialog.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+  const SignUpScreen({Key? key});
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
-
-String urlOfUploadedImage = "";
 
 class _SignUpScreenState extends State<SignUpScreen> {
   TextEditingController nametextEditingController = TextEditingController();
@@ -70,65 +68,62 @@ class _SignUpScreenState extends State<SignUpScreen> {
   uploadImageToStorage() async {
     String imageIDName = DateTime.now().millisecondsSinceEpoch.toString();
     Reference referenceImage =
-        FirebaseStorage.instance.ref().child("users").child(imageIDName);
+        FirebaseStorage.instance.ref().child("Images").child(imageIDName);
 
     UploadTask uploadTask = referenceImage.putFile(File(imageFile!.path));
     TaskSnapshot snapshot = await uploadTask;
-    urlOfUploadedImage = await snapshot.ref.getDownloadURL();
+    String urlOfUploadedImage = await snapshot.ref.getDownloadURL();
 
-    setState(() {
-      urlOfUploadedImage;
-    });
-    registerNewUser();
+    registerNewUser(urlOfUploadedImage);
   }
-registerNewUser() async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (BuildContext context) =>
-        LoadingDialog(messageText: "Registrando tu cuenta..."),
-  );
 
-  try {
-    UserCredential userCredential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(
-          email: emailtextEditingController.text.trim(),
-          password: passwordtextEditingController.text.trim(),
-        );
+  registerNewUser(String urlOfUploadedImage) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) =>
+          LoadingDialog(messageText: "Registrando tu cuenta..."),
+    );
 
-    // Registro exitoso
-    if (userCredential != null && userCredential.user != null) {
-      DatabaseReference usersRef = FirebaseDatabase.instance
-          .ref()
-          .child("Users")
-          .child(userCredential.user!.uid);
+    try {
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(
+            email: emailtextEditingController.text.trim(),
+            password: passwordtextEditingController.text.trim(),
+          );
 
-      Map userDataMap = {
-        "photo": urlOfUploadedImage,
-        "email": emailtextEditingController.text.trim(),
-        "number": numbertextEditingController.text.trim(),
-        "id": userCredential.user!.uid,
-        "name": nametextEditingController.text.trim(),
-        "surname": surnametextEditingController.text.trim(),
-        "blockStatus": "no",
-      };
+      // Registro exitoso
+      if (userCredential != null && userCredential.user != null) {
+        DatabaseReference usersRef = FirebaseDatabase.instance
+            .ref()
+            .child("users")
+            .child(userCredential.user!.uid);
 
-      await usersRef.set(userDataMap);
+        Map userDataMap = {
+          "photo": urlOfUploadedImage,
+          "email": emailtextEditingController.text.trim(),
+          "number": numbertextEditingController.text.trim(),
+          "id": userCredential.user!.uid,
+          "name": nametextEditingController.text.trim(),
+          "surname": surnametextEditingController.text.trim(),
+          "blockStatus": "no",
+        };
 
+        await usersRef.set(userDataMap);
+
+        Navigator.pop(context); // Cerrar diálogo de carga
+        Navigator.push(
+            context, MaterialPageRoute(builder: (c) => const LoginScreen()));
+      }
+    } catch (error) {
       Navigator.pop(context); // Cerrar diálogo de carga
-      Navigator.push(
-          context, MaterialPageRoute(builder: (c) => const LoginScreen()));
-    }
-  } catch (error) {
-    Navigator.pop(context); // Cerrar diálogo de carga
-    if (error is FirebaseAuthException) {
-      cMethods.displaySnackBar(error.message ?? 'Error desconocido', context);
-    } else {
-      cMethods.displaySnackBar('Error desconocido', context);
+      if (error is FirebaseAuthException) {
+        cMethods.displaySnackBar(error.message ?? 'Error desconocido', context);
+      } else {
+        cMethods.displaySnackBar('Error desconocido', context);
+      }
     }
   }
-}
-
 
   @override
   Widget build(BuildContext context) {

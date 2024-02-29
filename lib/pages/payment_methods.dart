@@ -26,23 +26,23 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
       String userId = user.uid;
 
       DatabaseReference databaseReference =
-          FirebaseDatabase.instance.ref().child('users').child(userId);
+          FirebaseDatabase.instance.reference().child('PaymentMethods').child(userId);
 
-      DatabaseEvent event = await databaseReference.once();
-      DataSnapshot dataSnapshot = event.snapshot;
+      try {
+      DataSnapshot dataSnapshot = await databaseReference.once().then((event) => event.snapshot);
+        if (dataSnapshot.value != null) {
+          setState(() {
+            if (dataSnapshot.value is Map) {
+              Map<dynamic, dynamic> paymentMethodsData =
+                  dataSnapshot.value as Map<dynamic, dynamic>;
 
-      if (dataSnapshot.value != null) {
-        setState(() {
-          if (dataSnapshot.value is Map) {
-            Map<dynamic, dynamic> userData =
-                dataSnapshot.value as Map<dynamic, dynamic>;
-
-            if (userData['paymentmethods'] != null) {
               _paymentMethods =
-                  userData['paymentmethods'] as List<dynamic>;
+                  paymentMethodsData.values.toList(); // Convertir a lista
             }
-          }
-        });
+          });
+        }
+      } catch (error) {
+        print("Error al obtener los métodos de pago: $error");
       }
     }
   }
@@ -52,7 +52,6 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Métodos de Pago'),
-        
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -68,10 +67,18 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               child: ListView.builder(
                 itemCount: _paymentMethods.length,
                 itemBuilder: (context, index) {
-                  // Aquí puedes personalizar la visualización de cada método de pago
+                  final cardNumber = _paymentMethods[index]['cardNumber'] as String?;
+                  final expiryDate = _paymentMethods[index]['expiryDate'] as String?;
+
                   return ListTile(
-                    title: Text('Número de Tarjeta: ${_paymentMethods[index]['cardNumber']}'),
-                    subtitle: Text('Fecha de Caducidad: ${_paymentMethods[index]['expiryDate']}'),
+                    title: Text('Número de Tarjeta: ${cardNumber ?? 'N/A'}'),
+                    subtitle: Text('Fecha de Caducidad: ${expiryDate ?? 'N/A'}'),
+                    trailing: IconButton(
+                      icon: Icon(Icons.delete),
+                      onPressed: () {
+                        confirmDeletePaymentMethod(index);
+                      },
+                    ),
                   );
                 },
               ),
@@ -90,5 +97,60 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         ),
       ),
     );
+  }
+
+  void confirmDeletePaymentMethod(int index) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Confirmar Eliminación"),
+          content: Text("¿Deseas confirmar la eliminación de este método de pago?"),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Cancelar"),
+            ),
+            TextButton(
+              onPressed: () {
+                deletePaymentMethod(index);
+                Navigator.of(context).pop();
+              },
+              child: Text("Eliminar"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void deletePaymentMethod(int index) async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      String userId = user.uid;
+      DatabaseReference databaseReference =
+          FirebaseDatabase.instance.reference().child('PaymentMethods').child(userId);
+
+      try {
+      DataSnapshot dataSnapshot = await databaseReference.once().then((event) => event.snapshot);
+        if (dataSnapshot.value != null && dataSnapshot.value is Map) {
+          Map<dynamic, dynamic> paymentMethodsData =
+              dataSnapshot.value as Map<dynamic, dynamic>;
+
+          // Obtener la clave del método de pago basado en el índice
+          String? paymentKey = paymentMethodsData.keys.toList()[index];
+          if (paymentKey != null) {
+            // Eliminar el método de pago de la base de datos
+            await databaseReference.child(paymentKey).remove();
+            // Actualizar la lista de métodos de pago
+            _getPaymentMethodsFromFirebase();
+          }
+        }
+      } catch (error) {
+        print("Error al eliminar el método de pago: $error");
+      }
+    }
   }
 }
