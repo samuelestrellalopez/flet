@@ -10,8 +10,6 @@ import 'package:flutter_stripe/flutter_stripe.dart'; // Importa flutter_stripe
 
 Future<void> main() async
 {
-    Stripe.publishableKey = 'pk_test_51Oc9WPHDirRzPkGPs7RVgxaLXz7ZEpmeULsvZQsk5xDhtFPST7ke5TDCH03H444ijUW5xFcIt5R6YUSLEctCxlzG00ASdfAHZx'; // Reemplaza con tu clave pública de Stripe
-
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
 

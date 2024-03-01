@@ -1,3 +1,4 @@
+import 'package:users_app/pages/ActivityPage%20.dart';
 import 'package:users_app/pages/home_page.dart';
 import 'package:users_app/pages/payment_methods.dart';
 import 'package:users_app/pages/profile_page.dart';
@@ -25,7 +26,7 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    controller = TabController(length: 3, vsync: this);
+    controller = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -43,8 +44,8 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
         children: [
           HomePage(),
           PaymentMethodsPage(),
+          ActivityPage(),
           ProfilePage(),
-
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -56,6 +57,10 @@ class _DashboardState extends State<Dashboard> with SingleTickerProviderStateMix
            BottomNavigationBarItem(
             icon: Icon(Icons.payment),
             label: "Pagos",
+          ),
+           BottomNavigationBarItem(
+            icon: Icon(Icons.directions_bus_outlined),
+            label: "Actividad",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

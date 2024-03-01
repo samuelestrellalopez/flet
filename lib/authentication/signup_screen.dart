@@ -96,7 +96,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (userCredential != null && userCredential.user != null) {
         DatabaseReference usersRef = FirebaseDatabase.instance
             .ref()
-            .child("users")
+            .child("Users")
             .child(userCredential.user!.uid);
 
         Map userDataMap = {
